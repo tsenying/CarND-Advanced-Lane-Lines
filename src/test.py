@@ -16,6 +16,7 @@ plt.show()
 CALIBRATION = pickle.load( open( "camera_cal/calibration_pickle.p", "rb" ) )
 PERSPECTIVE = pickle.load( open( "./camera_cal/perspective_transform_pickle.p", "rb"))
 
+# test find_lane with sliding windows
 left_fit, right_fit, binary_warped = find_lane( image,
     CALIBRATION["mtx"], CALIBRATION["dist"], PERSPECTIVE["M"],
     plot=True )
@@ -28,3 +29,13 @@ image_with_lane = plot_lane( image, binary_warped, left_fit, right_fit,
     PERSPECTIVE["Minv"], CALIBRATION["mtx"], CALIBRATION["dist"])
 plt.imshow(image_with_lane)
 plt.show()
+
+# test find_lane with look ahead filter
+# left_fit, right_fit, binary_warped = find_lane( image, 
+#     CALIBRATION["mtx"], CALIBRATION["dist"],  left_fit=left_fit, right_fit=right_fit )
+# print("left_fit={}".format(left_fit))
+# print("right_fit={}".format(right_fit))
+#
+# image_with_lane = plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist)
+#
+# plt.imshow(image_with_lane)
