@@ -16,8 +16,16 @@ plt.show()
 CALIBRATION = pickle.load( open( "camera_cal/calibration_pickle.p", "rb" ) )
 PERSPECTIVE = pickle.load( open( "./camera_cal/perspective_transform_pickle.p", "rb"))
 
+# Define conversions in x and y from pixels space to meters
+REAL2PIXELS = {
+  'ym_per_pix': 30/720, # meters per pixel in y dimension
+  'xm_per_pix': 3.7/700 # meters per pixel in x dimension
+}
+
+
+
 # test find_lane with sliding windows
-left_fit, right_fit, binary_warped = find_lane( image,
+left_fit, right_fit, binary_warped, lane_radius = find_lane( image,
     CALIBRATION["mtx"], CALIBRATION["dist"], PERSPECTIVE["M"],
     plot=True )
 print("left_fit={}".format(left_fit))
@@ -25,8 +33,10 @@ print("right_fit={}".format(right_fit))
 
 plt.show()
 
+# plot the lane on image
 image_with_lane = plot_lane( image, binary_warped, left_fit, right_fit,
-    PERSPECTIVE["Minv"], CALIBRATION["mtx"], CALIBRATION["dist"])
+    PERSPECTIVE["Minv"], CALIBRATION["mtx"], CALIBRATION["dist"],
+    lane_radius, REAL2PIXELS['xm_per_pix'])
 plt.imshow(image_with_lane)
 plt.show()
 

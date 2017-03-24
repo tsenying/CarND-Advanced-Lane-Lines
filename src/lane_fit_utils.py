@@ -5,6 +5,94 @@ from image_utils import image_warp
 
 from combined_binary_util import colorAndGradientThresholdBinary
 
+# Curvature of lane lines
+import numpy as np
+def lane_curvature( leftx, lefty, rightx, righty, y_eval ):
+    """
+    Find Lane Curvature
+    
+    Args:
+        leftx (ndarray): left line x pixel positions
+        lefty (ndarray): left line y pixel positions
+        rightx
+        righty
+        y_eval (int): y pixel position to evaluate curvature (usually at bottom of image (binary_warped.shape[0] - 1), closest to vehicle)
+        
+    Returns:
+        (left_radius, right_radius)
+    """
+
+    # Define conversions in x and y from pixels space to meters
+    ym_per_pix = 30/720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+    # Fit new polynomials to x,y in real world space
+    left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
+    right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
+
+    # Calculate the new radii of curvature
+    left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+    right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+
+    # Calculate radius weighted by number of non-zero points on left and right lanes
+    left_nonzeros = leftx.shape[0]
+    right_nonzeros = rightx.shape[0]
+    print("leftx.shape[0]={}, rightx.shape[0]={}".format(left_nonzeros, right_nonzeros))
+    weighted_curverad = ((left_curverad * left_nonzeros) + (right_curverad * right_nonzeros))/(left_nonzeros + right_nonzeros)
+    
+    # # Now our radius of curvature is in meters
+    print(left_curverad, 'm', right_curverad, 'm', weighted_curverad, 'm')
+    # # Example values: 632.1 m    626.2 m
+    
+    return (left_curverad, right_curverad, weighted_curverad)
+
+
+
+# find off center distance and left and right line separation (lane width)
+def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
+    """
+    Find Off Center Distance and Lane Width
+
+    Args:
+        left_fit, 
+        right_fit,
+        warped_shape (y_dim, x_dim): shape of warped image used for lane fit
+        y_eval (int): y pixel position to evaluate curvature (usually at bottom of image (binary_warped.shape[0] - 1), closest to vehicle)
+        xm_per_pix (int): meters per x pixel
+
+    Returns:
+        (off_center, lane_width)
+    """
+
+    y_dim, x_dim = warped_shape
+
+    # # Calculate left and right x at bottom of image
+    # # Approach 1. adjust pixel value result be xm_per_pix
+    y_eval = y_dim - 1
+    print("y_eval={}".format(y_eval))
+
+    left_x = left_fit[0]*y_eval**2 + left_fit[1]*y_eval + left_fit[2]
+    right_x = right_fit[0]*y_eval**2 + right_fit[1]*y_eval + right_fit[2]
+    lane_width = (right_x - left_x) * xm_per_pix
+
+    print("left_x={}, right_x={}".format(left_x, right_x))
+    print("lane width={}".format(lane_width) )
+
+    assert 2 < lane_width < 5.5, "lane width should be reasonable: %r" % lane_width
+
+    # off center distance
+    lane_center = (right_x + left_x)/2
+    print("lane_center pixels={}".format(lane_center))
+
+    off_center = (lane_center - (x_dim/2) ) * xm_per_pix
+
+    half_image_width = ((x_dim/2) * xm_per_pix)
+    assert 0.0 < abs(off_center) < half_image_width
+
+    return off_center, lane_width
+
+
+
 def slidingWindowsPolyFit( binary_warped ):
     # Assuming you have created a warped binary image called "binary_warped"
     # Take a histogram of the bottom half of the image
@@ -93,8 +181,10 @@ def slidingWindowsPolyFit( binary_warped ):
 
     ###print("lefty.shape={}, left_fit={}".format(lefty.shape, left_fit))
     ###print("righty.shape={}, right_fit={}".format(righty.shape, right_fit))
+    
+    left_radius, right_radius, weighted_radius = lane_curvature( leftx, lefty, rightx, righty, binary_warped.shape[0] - 1 )
 
-    return left_fit, right_fit, out_img
+    return left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
 
 
 # Assume you now have a new warped binary image
@@ -169,7 +259,9 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     else:
         out_img = None
 
-    return left_fit, right_fit, out_img
+    left_radius, right_radius, weighted_radius = lane_curvature( leftx, lefty, rightx, righty, binary_warped.shape[0] - 1 )
+    
+    return left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
 
 ## Collect transforms into pipeline function
 # Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
@@ -227,11 +319,13 @@ def find_lane( image, mtx, dist, M, left_fit=None, right_fit=None, plot=False ):
 
     # 3. Sliding windows fit on first image
     if left_fit is None:
-        left_fit, right_fit, out_img = slidingWindowsPolyFit( binary_warped )
+        left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
+          slidingWindowsPolyFit( binary_warped )
         fit_title = 'Sliding window fit'
         ###print("Sliding window fit left_fit={}, right_fit={}".format(left_fit, right_fit))
     else:
-        left_fit, right_fit, out_img = lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=plot )
+        left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
+          lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=plot )
         fit_title = 'Look ahead filter fit'
         ###print("Look ahead filter fit left_fit={}, right_fit={}".format(left_fit, right_fit))
 
@@ -254,10 +348,10 @@ def find_lane( image, mtx, dist, M, left_fit=None, right_fit=None, plot=False ):
         ax1.plot(right_fitx, ploty, color='orange')
         ax1.set_title(fit_title, fontsize=40)
 
-    return left_fit, right_fit, binary_warped
+    return left_fit, right_fit, binary_warped, weighted_radius
 
 # plot lane overlay on original image
-def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist):
+def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist, lane_radius, xm_per_pix):
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
@@ -283,5 +377,21 @@ def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist):
     # Combine the result with the original image
     image_undistorted = cv2.undistort(image, mtx, dist, None, mtx)
     image_with_lane = cv2.addWeighted(image_undistorted, 1, newwarp, 0.3, 0)
+    
+    # Add lane offset
+    off_center, lane_width = lane_offset( left_fit, right_fit, binary_warped.shape, xm_per_pix )
+    print("off_center={}, lane_width={}".format(off_center, lane_width))
+
+    # curve to left or right
+    if (left_fit[0] < 0):
+        curve_dir = 'L'
+    else:
+        curve_dir = 'R'
+        
+    annotate_str = "Radius {0:.2f}({1}), Off-Center {2:.3f}".format(lane_radius, curve_dir, off_center)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(image_with_lane,annotate_str,(10,100), font, 2,(255,255,255),3,cv2.LINE_AA)
+    
     return image_with_lane
     
