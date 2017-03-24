@@ -37,11 +37,11 @@ def lane_curvature( leftx, lefty, rightx, righty, y_eval ):
     # Calculate radius weighted by number of non-zero points on left and right lanes
     left_nonzeros = leftx.shape[0]
     right_nonzeros = rightx.shape[0]
-    print("leftx.shape[0]={}, rightx.shape[0]={}".format(left_nonzeros, right_nonzeros))
+    ###print("leftx.shape[0]={}, rightx.shape[0]={}".format(left_nonzeros, right_nonzeros))
     weighted_curverad = ((left_curverad * left_nonzeros) + (right_curverad * right_nonzeros))/(left_nonzeros + right_nonzeros)
     
     # # Now our radius of curvature is in meters
-    print(left_curverad, 'm', right_curverad, 'm', weighted_curverad, 'm')
+    ###print(left_curverad, 'm', right_curverad, 'm', weighted_curverad, 'm')
     # # Example values: 632.1 m    626.2 m
     
     return (left_curverad, right_curverad, weighted_curverad)
@@ -69,20 +69,20 @@ def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
     # # Calculate left and right x at bottom of image
     # # Approach 1. adjust pixel value result be xm_per_pix
     y_eval = y_dim - 1
-    print("y_eval={}".format(y_eval))
+    ###("y_eval={}".format(y_eval))
 
     left_x = left_fit[0]*y_eval**2 + left_fit[1]*y_eval + left_fit[2]
     right_x = right_fit[0]*y_eval**2 + right_fit[1]*y_eval + right_fit[2]
     lane_width = (right_x - left_x) * xm_per_pix
 
-    print("left_x={}, right_x={}".format(left_x, right_x))
-    print("lane width={}".format(lane_width) )
+    ###print("left_x={}, right_x={}".format(left_x, right_x))
+    ###print("lane width={}".format(lane_width) )
 
     assert 2 < lane_width < 5.5, "lane width should be reasonable: %r" % lane_width
 
     # off center distance
     lane_center = (right_x + left_x)/2
-    print("lane_center pixels={}".format(lane_center))
+    ###print("lane_center pixels={}".format(lane_center))
 
     off_center = (lane_center - (x_dim/2) ) * xm_per_pix
 
@@ -380,7 +380,7 @@ def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist, lane_
     
     # Add lane offset
     off_center, lane_width = lane_offset( left_fit, right_fit, binary_warped.shape, xm_per_pix )
-    print("off_center={}, lane_width={}".format(off_center, lane_width))
+    ###print("off_center={}, lane_width={}".format(off_center, lane_width))
 
     # curve to left or right
     if (left_fit[0] < 0):
