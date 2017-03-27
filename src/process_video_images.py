@@ -1,6 +1,6 @@
-# import numpy as np
+
 import cv2
-# import matplotlib.pyplot as plt
+
 # import matplotlib.image as mpimg
 import pickle
 # Import everything needed to edit/save/watch video clips
@@ -8,8 +8,6 @@ import pickle
 
 import config
 from lane_finder import LaneFinder
-
-from lane_fit_utils import slidingWindowsPolyFit, lookAheadFilter, plot_lane
 
 # Read in the saved camera matrix and distortion coefficients
 # These are the arrays calculated using cv2.calibrateCamera()
@@ -31,8 +29,8 @@ def process_image(image):
     lane_fits['left_fit'], lane_fits['right_fit'], binary_warped, lane_radius = config.lane_finder.find_lane( image, 
         CALIBRATION["mtx"], CALIBRATION["dist"], PERSPECTIVE["M"],
         left_fit = lane_fits['left_fit'], right_fit = lane_fits['right_fit'] )
-    #image_with_lane = plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist)
-    image_with_lane = plot_lane( image, binary_warped, lane_fits['left_fit'], lane_fits['right_fit'], 
+
+    image_with_lane = config.lane_finder.plot_lane( image, binary_warped, lane_fits['left_fit'], lane_fits['right_fit'], 
         PERSPECTIVE["Minv"], CALIBRATION["mtx"], CALIBRATION["dist"],
         lane_radius, REAL2PIXELS['xm_per_pix'])
     return image_with_lane
