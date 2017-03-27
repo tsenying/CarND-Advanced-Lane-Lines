@@ -3,6 +3,8 @@ import cv2
 import matplotlib.pyplot as plt
 from image_utils import image_warp
 
+import config
+
 from combined_binary_util import colorAndGradientThresholdBinary
 
 # Curvature of lane lines
@@ -322,12 +324,13 @@ def find_lane( image, mtx, dist, M, left_fit=None, right_fit=None, plot=False ):
         left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
           slidingWindowsPolyFit( binary_warped )
         fit_title = 'Sliding window fit'
-        ###print("Sliding window fit left_fit={}, right_fit={}".format(left_fit, right_fit))
+        # print("Sliding window fit left_fit={}, right_fit={}".format(left_fit, right_fit))
     else:
+        # Look ahead filter fit if line fit is available
         left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
           lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=plot )
         fit_title = 'Look ahead filter fit'
-        ###print("Look ahead filter fit left_fit={}, right_fit={}".format(left_fit, right_fit))
+        # print("Look ahead filter fit left_fit={}, right_fit={}".format(left_fit, right_fit))
 
     if plot:
         # Generate x and y values for plotting
@@ -392,6 +395,7 @@ def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist, lane_
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     cv2.putText(image_with_lane,annotate_str,(10,100), font, 2,(255,255,255),3,cv2.LINE_AA)
+    cv2.putText(image_with_lane,"Frame:{}".format(config.count), (10,150), font, 1, (255,255,255), 2 ,cv2.LINE_AA )
     
     return image_with_lane
     
