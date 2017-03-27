@@ -7,8 +7,9 @@ import pickle
 # from moviepy.editor import VideoFileClip
 
 import config
+from lane_finder import LaneFinder
 
-from lane_fit_utils import slidingWindowsPolyFit, lookAheadFilter, find_lane, plot_lane
+from lane_fit_utils import slidingWindowsPolyFit, lookAheadFilter, plot_lane
 
 # Read in the saved camera matrix and distortion coefficients
 # These are the arrays calculated using cv2.calibrateCamera()
@@ -27,7 +28,7 @@ lane_fits = {
 
 # find lane and plot lane on image
 def process_image(image):
-    lane_fits['left_fit'], lane_fits['right_fit'], binary_warped, lane_radius = find_lane( image, 
+    lane_fits['left_fit'], lane_fits['right_fit'], binary_warped, lane_radius = config.lane_finder.find_lane( image, 
         CALIBRATION["mtx"], CALIBRATION["dist"], PERSPECTIVE["M"],
         left_fit = lane_fits['left_fit'], right_fit = lane_fits['right_fit'] )
     #image_with_lane = plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist)
@@ -52,6 +53,7 @@ height = 720
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 lane_video = cv2.VideoWriter('lane_video.mp4',fourcc,fps,(width,height))
 
+config.lane_finder = LaneFinder()
 config.count = 0
 start_frame = 380
 stop_frame  = 400
