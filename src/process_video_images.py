@@ -13,27 +13,12 @@ from lane_finder import LaneFinder
 # These are the arrays calculated using cv2.calibrateCamera()
 CALIBRATION = pickle.load( open( "camera_cal/calibration_pickle.p", "rb" ) )
 PERSPECTIVE = pickle.load( open( "./camera_cal/perspective_transform_pickle.p", "rb"))
+
 # Define conversions in x and y from pixels space to meters
 REAL2PIXELS = {
   'ym_per_pix': 30/720, # meters per pixel in y dimension
   'xm_per_pix': 3.7/700 # meters per pixel in x dimension
 }
-
-lane_fits = {
-    'left_fit': None,
-    'right_fit': None
-}
-
-# find lane and plot lane on image
-def process_image(image):
-    lane_fits['left_fit'], lane_fits['right_fit'], binary_warped, lane_radius = config.lane_finder.find_lane( image, 
-        CALIBRATION["mtx"], CALIBRATION["dist"], PERSPECTIVE["M"],
-        left_fit = lane_fits['left_fit'], right_fit = lane_fits['right_fit'] )
-
-    image_with_lane = config.lane_finder.plot_lane( image, binary_warped, lane_fits['left_fit'], lane_fits['right_fit'], 
-        PERSPECTIVE["Minv"], CALIBRATION["mtx"], CALIBRATION["dist"],
-        lane_radius, REAL2PIXELS['xm_per_pix'])
-    return image_with_lane
 
 cap = cv2.VideoCapture('project_video.mp4')
 fps = cap.get(cv2.CAP_PROP_FPS)
@@ -51,7 +36,7 @@ height = 720
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 lane_video = cv2.VideoWriter('lane_video.mp4',fourcc,fps,(width,height))
 
-config.lane_finder = LaneFinder()
+config.lane_finder = LaneFinder( CALIBRATION, PERSPECTIVE, REAL2PIXELS )
 config.count = 0
 start_frame = 380
 stop_frame  = 400
@@ -70,7 +55,7 @@ while(cap.isOpened()):
                 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         #cv2.imwrite('./debug_images/orig/frame' + str(config.count) + '.jpg', cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR) )
-        image_with_lane = process_image(frame_rgb)
+        image_with_lane = config.lane_finder.process_image(frame_rgb)
         #cv2.imwrite('./debug_images/lane/frame' + str(config.count) + '.jpg', cv2.cvtColor(image_with_lane, cv2.COLOR_RGB2BGR) )
 
         lane_video.write( cv2.cvtColor(image_with_lane, cv2.COLOR_RGB2BGR) )

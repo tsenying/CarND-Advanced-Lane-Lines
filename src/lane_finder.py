@@ -14,8 +14,11 @@ import config
 class LaneFinder():
     nframes = 8
     
-    def __init__( self ):
+    def __init__( self, CALIBRATION, PERSPECTIVE, REAL2PIXELS ):
         self.lane = Lane(self.nframes)
+        self.CALIBRATION = CALIBRATION
+        self.PERSPECTIVE = PERSPECTIVE
+        self.REAL2PIXELS = REAL2PIXELS
         
     ## Collect transforms into pipeline function
     # Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
@@ -149,6 +152,18 @@ class LaneFinder():
         cv2.putText(image_with_lane,annotate_str,(10,100), font, 2,(255,255,255),3,cv2.LINE_AA)
         cv2.putText(image_with_lane,"Frame:{}".format(config.count), (10,150), font, 1, (255,255,255), 2 ,cv2.LINE_AA )
 
+        return image_with_lane
+
+
+    # find lane and plot lane on image
+    def process_image(self, image):
+        self.lane.left_line.current_fit, self.lane.right_line.current_fit, binary_warped, lane_radius = self.find_lane( image, 
+            self.CALIBRATION["mtx"], self.CALIBRATION["dist"], self.PERSPECTIVE["M"],
+            left_fit = self.lane.left_line.current_fit, right_fit = self.lane.right_line.current_fit )
+
+        image_with_lane = self.plot_lane( image, binary_warped, self.lane.left_line.current_fit, self.lane.right_line.current_fit, 
+            self.PERSPECTIVE["Minv"], self.CALIBRATION["mtx"], self.CALIBRATION["dist"],
+            lane_radius, self.REAL2PIXELS['xm_per_pix'])
         return image_with_lane
 
 
