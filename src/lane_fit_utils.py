@@ -188,13 +188,12 @@ def slidingWindowsPolyFit( binary_warped ):
 # Assume you now have a new warped binary image
 # from the next frame of video (also called "binary_warped")
 # It's now much easier to find line pixels!
-# (use the same image just to try out)
 def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     """Look Ahead Filter
 
     Args:
         left_fit (array): 2nd order polynomial fit of left lane line from previous frame
-        right_fit (array):
+        right_fit (array): 2nd order polynomial fit of right lane line from previous frame
         binary_warped (numpy.ndarray): thresholded binary
         lane_image (boolean): create lane image
 

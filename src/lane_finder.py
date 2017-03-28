@@ -160,10 +160,13 @@ class LaneFinder():
         self.lane.left_line.current_fit, self.lane.right_line.current_fit, binary_warped, lane_radius = self.find_lane( image, 
             self.CALIBRATION["mtx"], self.CALIBRATION["dist"], self.PERSPECTIVE["M"],
             left_fit = self.lane.left_line.current_fit, right_fit = self.lane.right_line.current_fit )
+            
+        self.lane.update()
 
-        image_with_lane = self.plot_lane( image, binary_warped, self.lane.left_line.current_fit, self.lane.right_line.current_fit, 
+        image_with_lane = self.plot_lane( image, binary_warped, self.lane.left_line.best_fit, self.lane.right_line.best_fit, 
             self.PERSPECTIVE["Minv"], self.CALIBRATION["mtx"], self.CALIBRATION["dist"],
             lane_radius, self.REAL2PIXELS['xm_per_pix'])
         return image_with_lane
 
+        
 

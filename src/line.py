@@ -2,9 +2,9 @@ import numpy as np
 
 # Define a class to receive the characteristics of each line detection
 class Line():
-    def __init__(self):
+    def __init__(self, nframes):
         # number of frames in history
-        self.n = 5
+        self.nframes = nframes
         
         # was the line detected in the last iteration?
         self.detected = False  
@@ -35,3 +35,11 @@ class Line():
         
         #y values for detected line pixels
         self.ally = None
+    
+    def update( self ):
+        if self.best_fit is None:
+            self.best_fit = self.current_fit
+        else:
+            self.best_fit = ( self.best_fit * (self.nframes - 1) + self.current_fit) / self.nframes
+            
+        #print("Line#update best_fit={}, current_fit={}".format(self.best_fit, self.current_fit))
