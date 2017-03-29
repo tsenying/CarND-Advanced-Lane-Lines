@@ -1,7 +1,11 @@
 import numpy as np
+import config
+from lane_fit_utils import are_lines_parallel, line_distance
 
 # Define a class to receive the characteristics of each line detection
 class Line():
+    y_eval = config.image_shape['height'] - 1;
+    
     def __init__(self, nframes):
         # number of frames in history
         self.nframes = nframes
@@ -35,11 +39,105 @@ class Line():
         
         #y values for detected line pixels
         self.ally = None
+        
+        # Polynomial function for current_fit coefficients
+        self.current_fit_poly = None
+        # Polynomial function for best_fit coefficients
+        self.best_fit_poly = None
     
-    def update( self ):
+    def update( self, other = None ):
+        """
+        Returns:
+            boolean: False if bad line
+        """
+        is_valid = True
         if self.best_fit is None:
             self.best_fit = self.current_fit
         else:
-            self.best_fit = ( self.best_fit * (self.nframes - 1) + self.current_fit) / self.nframes
-            
+            if self.valid( other ):
+                self.best_fit = ( self.best_fit * (self.nframes - 1) + self.current_fit) / self.nframes
+            else:
+                is_valid = False
         #print("Line#update best_fit={}, current_fit={}".format(self.best_fit, self.current_fit))
+        
+        self.current_fit_poly = np.poly1d(self.current_fit)
+        self.best_fit_poly = np.poly1d(self.best_fit)
+        
+        return is_valid
+        
+    def valid( self, other=None):
+        """
+        check current fit 
+        - is line curvature similar to best_fit?
+        - is line a reasonable distance from other lane line?
+
+        Args:
+
+        Returns:
+            boolean
+        """
+        
+        # see if current fit is similar to history
+        # threshold=(0.0003, 0.55)
+        is_parallel = False
+        if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.0005, 0.55) )):
+            is_parallel = True
+        else:
+            config.debug_log.write("Line#valid Frame {} invalid, is_parallel={}\n".format( config.count, is_parallel ))
+            
+        distance_from_other_line_ok = False
+        other_line_distance = line_distance(self.current_fit, other.best_fit, self.y_eval)
+
+        lane_width_range = (600, 700)
+        if lane_width_range[0] <= other_line_distance <= lane_width_range[1]:
+            distance_from_other_line_ok = True
+        else:
+            config.debug_log.write("Line#valid Frame {} invalid, other_line_distance {}\n".format( config.count, other_line_distance ))
+            
+        is_valid = is_parallel and distance_from_other_line_ok
+        if not is_valid:
+            config.debug_log.write("Line#valid is_parallel={}, distance_from_other_line_ok={}\n".format(is_parallel, distance_from_other_line_ok))
+        
+        return is_valid
+            
+
+    def is_current_fit_parallel(self, other_line, threshold=(0.0005, 0.55)):
+        """
+        check if two lines are parallel by comparing first two polynomial fit coefficients
+        
+        Args:
+            param other_line (array): line to compare polynomial coefficients
+            threshold (tuple): floats representing delta thresholds for coefficients
+        
+        Returns:
+            boolean
+        """
+        diff_first_coefficient_ = np.abs(self.current_fit[0] - other_line.current_fit[0])
+        diff_second_coefficient = np.abs(self.current_fit[1] - other_line.current_fit[1])
+
+        is_parallel = diff_first_coefficient < threshold[0] and diff_second_coefficient < threshold[1]
+
+        return is_parallel
+
+    def get_current_fit_distance(self, other_line):
+        """
+        get distance between current fit with other_line
+        
+        Args:
+            other_line:
+        Returns:
+            float
+        """
+        return np.abs(self.current_fit_poly(y_eval) - other_line.current_fit_poly(y_eval))
+
+    def get_best_fit_distance(self, other_line):
+        """
+        get the distance between best fit with other line
+        
+        Args:
+            other_line:
+        Returns:
+            float
+        """
+        return np.abs(self.best_fit_poly(y_eval) - other_line.best_fit_poly(y_eval))
+    

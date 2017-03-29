@@ -20,6 +20,8 @@ REAL2PIXELS = {
   'xm_per_pix': 3.7/700 # meters per pixel in x dimension
 }
 
+config.debug_log = open('debug.log', 'w')
+
 cap = cv2.VideoCapture('project_video.mp4')
 fps = cap.get(cv2.CAP_PROP_FPS)
 
@@ -38,8 +40,8 @@ lane_video = cv2.VideoWriter('lane_video.mp4',fourcc,fps,(width,height))
 
 config.lane_finder = LaneFinder( CALIBRATION, PERSPECTIVE, REAL2PIXELS )
 config.count = 0
-start_frame = 400 #380
-stop_frame  = 600 #400
+start_frame = 500 #380
+stop_frame  = 550 #400
 while(cap.isOpened()):
     ret, frame = cap.read()
     if not ret:
@@ -66,4 +68,8 @@ while(cap.isOpened()):
 cap.release()
 cv2.destroyAllWindows()
 lane_video.release()
+
+if config.debug_log is not None:
+    config.debug_log.close()
+    
 print("total config.count={}".format(config.count))

@@ -260,3 +260,37 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     
     return left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
 
+def are_lines_parallel( line_one_poly, line_two_poly, threshold=(0.0005, 0.55) ):
+    """
+    check if two lines are parallel by comparing first two polynomial fit coefficients
+    
+    Args:
+        param other_line (array): line to compare polynomial coefficients
+        threshold (tuple): floats representing delta thresholds for coefficients
+    
+    Returns:
+        boolean
+    """
+    diff_first_coefficient = np.abs(line_one_poly[0] - line_two_poly[0])
+    diff_second_coefficient = np.abs(line_one_poly[1] - line_two_poly[1])
+
+    is_parallel = diff_first_coefficient < threshold[0] and diff_second_coefficient < threshold[1]
+
+    return is_parallel
+
+def line_distance(line_one_poly, line_two_poly, y_eval):
+    """
+    get distance between current fit with other_line
+    
+    Args:
+        line_one_poly: line one polynomial 
+        line_two_poly:
+        y_eval: value to evaluate
+    Returns:
+        float
+    """
+    line_one_poly1d = np.poly1d( line_one_poly )
+    line_two_poly1d = np.poly1d( line_two_poly )
+    return np.abs( line_one_poly1d( y_eval ) - line_two_poly1d( y_eval ))
+
+

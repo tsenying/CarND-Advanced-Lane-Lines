@@ -1,4 +1,5 @@
 from line import Line
+import config
 
 class Lane():
     def __init__(self, nframes):
@@ -16,7 +17,12 @@ class Lane():
         self.center_offset = None
         
     def update( self ):
-        self.left_line.update()
-        self.right_line.update()
+        left_valid = self.left_line.update( self.right_line )
+        right_valid = self.right_line.update( self.left_line )
+        
+        is_valid = left_valid and right_valid
+        if not is_valid:
+            config.debug_log.write("Lane:update left_valid={}, right_valid={}\n".format(left_valid, right_valid))
+        return is_valid
         
         

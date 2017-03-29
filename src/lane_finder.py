@@ -161,7 +161,14 @@ class LaneFinder():
             self.CALIBRATION["mtx"], self.CALIBRATION["dist"], self.PERSPECTIVE["M"],
             left_fit = self.lane.left_line.current_fit, right_fit = self.lane.right_line.current_fit )
             
-        self.lane.update()
+        is_valid = self.lane.update()
+        if not is_valid:
+            config.debug_log.write("LaneFinder#process_image Frame {} invalid\n".format( config.count ))
+            invalid_frame_image = self.plot_lane( image, binary_warped, self.lane.left_line.current_fit, self.lane.right_line.current_fit, 
+                self.PERSPECTIVE["Minv"], self.CALIBRATION["mtx"], self.CALIBRATION["dist"],
+                lane_radius, self.REAL2PIXELS['xm_per_pix'])
+            cv2.imwrite('./debug_images/invalid/frame' + str(config.count) + '.jpg', cv2.cvtColor(invalid_frame_image, cv2.COLOR_RGB2BGR) )
+            
 
         image_with_lane = self.plot_lane( image, binary_warped, self.lane.left_line.best_fit, self.lane.right_line.best_fit, 
             self.PERSPECTIVE["Minv"], self.CALIBRATION["mtx"], self.CALIBRATION["dist"],
