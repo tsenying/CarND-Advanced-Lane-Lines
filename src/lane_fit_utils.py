@@ -44,8 +44,32 @@ def lane_curvature( leftx, lefty, rightx, righty, y_eval ):
     
     return (left_curverad, right_curverad, weighted_curverad)
 
+def line_curvature( line_poly ):
+    """
+    Find line curvature
+    
+    Args:
+        line_poly (array): line polynomial fit
+    Returns:
+        radius (float): in meters
+    """
+    line_poly1d_fn = np.poly1d( line_poly ) # turn coefficients into function
+    
+    # calculate set of points for poly to re-fit in real world
+    # remember y axis is variant, x axis is function value
+    y_points = np.array(np.linspace(0, config.image_shape['height'], num=50))
+    x_points = np.array([ line_poly1d_fn(x) for x in y_points ])
+    
+    # evaluate curvature closest to vehicle
+    y_eval = config.image_shape['height'] - 1
+    
+    # real world poly fit
+    real_line_poly = np.polyfit(y_points * config.REAL2PIXELS['ym_per_pix'], x_points * config.REAL2PIXELS['xm_per_pix'], 2 )
+    
+    radius = ((1 + (2*real_line_poly[0]*y_eval*config.REAL2PIXELS['ym_per_pix'] + real_line_poly[1])**2)**1.5) / np.absolute(2*real_line_poly[0])
 
-
+    return radius
+    
 # find off center distance and left and right line separation (lane width)
 def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
     """
@@ -213,7 +237,7 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     right_line = right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2]
     right_lane_inds = ((nonzerox > (right_line - margin)) & (nonzerox < (right_line + margin)))
 
-    # Again, extract left and right line pixel positions
+    # Extract left and right line pixel positions
     leftx = nonzerox[left_lane_inds]
     lefty = nonzeroy[left_lane_inds]
     rightx = nonzerox[right_lane_inds]

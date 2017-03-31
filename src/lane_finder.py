@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from lane import Lane
 from line import Line
 
-from lane_fit_utils import slidingWindowsPolyFit, lookAheadFilter, lane_offset
+from lane_fit_utils import slidingWindowsPolyFit, lookAheadFilter, lane_offset, line_curvature
 from combined_binary_util import colorAndGradientThresholdBinary
 from image_utils import image_warp
 
@@ -38,7 +38,7 @@ class LaneFinder():
             mtx: camera matrix,
             dist: distortion coefficients
             M: the transform matrix
-            left_fit: polyfit from previous frame
+            left_fit: average polyfit from previous frames
             right_fit:
 
         Returns:
@@ -83,7 +83,7 @@ class LaneFinder():
         else:
             # Look ahead filter fit if line fit is available
             left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
-              lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=plot )
+              lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=True )
             fit_title = 'Look ahead filter fit'
             # print("Look ahead filter fit left_fit={}, right_fit={}".format(left_fit, right_fit))
 
@@ -106,7 +106,7 @@ class LaneFinder():
             ax1.plot(right_fitx, ploty, color='orange')
             ax1.set_title(fit_title, fontsize=40)
 
-        return left_fit, right_fit, binary_warped, weighted_radius
+        return left_fit, right_fit, binary_warped, weighted_radius, out_img
 
     # plot lane overlay on original image
     def plot_lane( self, image, binary_warped, left_fit, right_fit, Minv, mtx, dist, lane_radius, xm_per_pix):
@@ -157,9 +157,10 @@ class LaneFinder():
 
     # find lane and plot lane on image
     def process_image(self, image):
-        self.lane.left_line.current_fit, self.lane.right_line.current_fit, binary_warped, lane_radius = self.find_lane( image, 
+        # use line.best_fit if available
+        self.lane.left_line.current_fit, self.lane.right_line.current_fit, binary_warped, lane_radius, out_img = self.find_lane( image, 
             self.CALIBRATION["mtx"], self.CALIBRATION["dist"], self.PERSPECTIVE["M"],
-            left_fit = self.lane.left_line.current_fit, right_fit = self.lane.right_line.current_fit )
+            left_fit = self.lane.left_line.best_fit, right_fit = self.lane.right_line.best_fit )
             
         is_valid = self.lane.update()
         if not is_valid:
@@ -168,8 +169,13 @@ class LaneFinder():
                 self.PERSPECTIVE["Minv"], self.CALIBRATION["mtx"], self.CALIBRATION["dist"],
                 lane_radius, self.REAL2PIXELS['xm_per_pix'])
             cv2.imwrite('./debug_images/invalid/frame' + str(config.count) + '.jpg', cv2.cvtColor(invalid_frame_image, cv2.COLOR_RGB2BGR) )
+            cv2.imwrite('./debug_images/invalid/lanes/frame' + str(config.count) + '.jpg', cv2.cvtColor(out_img, cv2.COLOR_RGB2BGR))
             
-
+        # Calculate lane radius using best fit
+        left_radius = line_curvature( self.lane.left_line.best_fit )
+        right_radius = line_curvature( self.lane.right_line.best_fit )
+        lane_radius = (left_radius + right_radius)/2
+        
         image_with_lane = self.plot_lane( image, binary_warped, self.lane.left_line.best_fit, self.lane.right_line.best_fit, 
             self.PERSPECTIVE["Minv"], self.CALIBRATION["mtx"], self.CALIBRATION["dist"],
             lane_radius, self.REAL2PIXELS['xm_per_pix'])

@@ -7,8 +7,8 @@ class Lane():
         self.nframes = nframes
         
         # left and right lines
-        self.left_line = Line( self.nframes )
-        self.right_line = Line( self.nframes )
+        self.left_line = Line( self.nframes, 'left' )
+        self.right_line = Line( self.nframes, 'right' )
         
         # radius of curvature of the lane (meters) (combined left and right line curvatures)
         self.radius_of_curvature = None 

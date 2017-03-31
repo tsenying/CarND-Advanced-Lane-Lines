@@ -6,7 +6,9 @@ from lane_fit_utils import are_lines_parallel, line_distance
 class Line():
     y_eval = config.image_shape['height'] - 1;
     
-    def __init__(self, nframes):
+    def __init__(self, nframes, name):
+        self.name = name
+        
         # number of frames in history
         self.nframes = nframes
         
@@ -83,7 +85,7 @@ class Line():
         if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.0005, 0.55) )):
             is_parallel = True
         else:
-            config.debug_log.write("Line#valid Frame {} invalid, is_parallel={}\n".format( config.count, is_parallel ))
+            config.debug_log.write("Line({})#valid Frame {} invalid, is_parallel={}, current_fit={}, best_fit={}\n".format( self.name, config.count, is_parallel, self.current_fit, self.best_fit ))
             
         distance_from_other_line_ok = False
         other_line_distance = line_distance(self.current_fit, other.best_fit, self.y_eval)
@@ -92,11 +94,11 @@ class Line():
         if lane_width_range[0] <= other_line_distance <= lane_width_range[1]:
             distance_from_other_line_ok = True
         else:
-            config.debug_log.write("Line#valid Frame {} invalid, other_line_distance {}\n".format( config.count, other_line_distance ))
+            config.debug_log.write("Line({})#valid Frame {} invalid, other_line_distance {}\n".format( self.name, config.count, other_line_distance ))
             
         is_valid = is_parallel and distance_from_other_line_ok
         if not is_valid:
-            config.debug_log.write("Line#valid is_parallel={}, distance_from_other_line_ok={}\n".format(is_parallel, distance_from_other_line_ok))
+            config.debug_log.write("Line({})#valid is_parallel={}, distance_from_other_line_ok={}\n".format( self.name, is_parallel, distance_from_other_line_ok))
         
         return is_valid
             
