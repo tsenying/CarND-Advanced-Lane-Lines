@@ -16,6 +16,7 @@ def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(
     """
     img = np.copy(img)
     
+    ### Convert image to color spaces used
     # Convert to HLS color space
     # From investigations, HLS S channel, and HSV V channel provides decent lane line detection
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS).astype(np.float)
@@ -24,13 +25,10 @@ def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(
     hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV).astype(np.float)
     hsv_v = hsv[:,:,2]
     
+    # Red channel is good in cases of dark background like frame 613 where HLS S doesn't perform well
     red = img[:,:,0]
 
     ######## Sobel magnitude and direction ########
-    
-    ### Sobel Gradient in x direction ( x direction accentuates vertical lines )
-    #sx_binary = abs_sobel_thresh(img, orient='x', ksize=3, thresh_min=sobel_thresh[0], thresh_max=sobel_thresh[1])
-
     ### Sobel magnitude
     mag_binary = mag_thresh(hls_s, sobel_kernel=ksize, mag_thresh=sobel_thresh) # (30,100) seems to work well
 
@@ -53,6 +51,7 @@ def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(
 
     ######## Color Channel ########
     # Threshold color channel
+    # Note usage of HLS S and HSV V channels (instead of Gray or Red) as they provide good lane line detection
     s_binary = np.zeros_like(hls_s)
     s_binary[(hls_s >= color_thresh[0]) & (hls_s <= color_thresh[1])] = 1
 
@@ -68,20 +67,33 @@ def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(
 
     # create debug image with different colors for sobel and color
     # Stack each channel, channel 0 = 0s, channel 1 = sobel binary, channel 2 = color binary
-    # Note color_binary[:, :, 0] is all 0s, effectively an all black image. It might
-    # be beneficial to replace this channel with something else.
     color_binary = np.dstack(( np.zeros_like(sobel_combined_binary), sobel_combined_binary, color_gradiented_binary))
 
     # Combine sobel and color results
     combined_binary = np.zeros_like(sobel_combined_binary)
     combined_binary[ (sobel_combined_binary == 1) | (color_gradiented_binary == 1) ] = 1
 
+    # return combined_binary plus intermediary images for debug purposes
     return combined_binary, color_binary, \
         sobel_combined_binary, mag_binary, dir_binary, \
         s_gradiented_binary, s_binary, v_binary, color_gradiented_binary
 
 # plot lane overlay on original image
 def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist):
+    """Plot lane overlay on original image
+
+    Args:
+        image (numpy.ndarray): Source image. Color channels in RGB order.
+        binary_warped: lane window image warped to birds eye view
+        left_fit: left line polynomial fit
+        right_fit: right line polynomial fit
+        Minv: Inverse transform matrix for transforming warped back to perspective view
+        mtx: camera calibration matrix
+        dist: camera calibration dist coefficients
+
+    Returns:
+        image
+    """
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
@@ -92,7 +104,6 @@ def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist):
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
     color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    ###print("color_warp.shape={}".format(color_warp.shape))
 
     # Recast the x and y points into usable format for cv2.fillPoly()
     pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])

@@ -1,3 +1,4 @@
+# counts number of frames in video
 import numpy as np
 import cv2
 

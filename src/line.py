@@ -49,10 +49,13 @@ class Line():
     
     def update( self, other = None ):
         """
+        Updates the best_fit polynomial with current_fit if it is valid 
+        
         Returns:
             boolean: False if bad line
         """
         is_valid = True
+        
         if self.best_fit is None:
             self.best_fit = self.current_fit
         else:
@@ -74,16 +77,14 @@ class Line():
         - is line a reasonable distance from other lane line?
 
         Args:
-
+            self
         Returns:
             boolean
         """
         
         # see if current fit is similar to history
-        # threshold=(0.0003, 0.55)
+
         is_parallel = False
-        #if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.0005, 0.55) )):
-        #if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.00057, 0.77) )):
         if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.00065, 0.8) )):
             is_parallel = True
         else:
@@ -92,7 +93,7 @@ class Line():
         distance_from_other_line_ok = False
         other_line_distance = line_distance(self.current_fit, other.best_fit, self.y_eval)
 
-        lane_width_range = (600, 720)
+        lane_width_range = (600, 736) # min, max lane width allowed
         if lane_width_range[0] <= other_line_distance <= lane_width_range[1]:
             distance_from_other_line_ok = True
         else:

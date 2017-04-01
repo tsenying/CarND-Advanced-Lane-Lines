@@ -2,6 +2,8 @@ from line import Line
 import config
 
 class Lane():
+    """ Lane abstraction with left and right line
+    """
     def __init__(self, nframes):
         # number of frames in history
         self.nframes = nframes
@@ -17,6 +19,8 @@ class Lane():
         self.center_offset = None
         
     def update( self ):
+        """ update left and right lines
+        """
         left_valid = self.left_line.update( self.right_line )
         right_valid = self.right_line.update( self.left_line )
         

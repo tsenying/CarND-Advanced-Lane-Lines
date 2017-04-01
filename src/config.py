@@ -1,4 +1,7 @@
+# frame count
 count = 0
+
+# LaneFinder class instance
 lane_finder = None
 
 image_shape = { 'width': 1280, 'height': 720 }
@@ -9,4 +12,4 @@ REAL2PIXELS = {
   'xm_per_pix': 3.7/700 # meters per pixel in x dimension
 }
 
-log_file = None
+debug_log = None

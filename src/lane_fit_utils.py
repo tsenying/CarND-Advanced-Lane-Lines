@@ -35,12 +35,8 @@ def lane_curvature( leftx, lefty, rightx, righty, y_eval ):
     # Calculate radius weighted by number of non-zero points on left and right lanes
     left_nonzeros = leftx.shape[0]
     right_nonzeros = rightx.shape[0]
-    ###print("leftx.shape[0]={}, rightx.shape[0]={}".format(left_nonzeros, right_nonzeros))
+
     weighted_curverad = ((left_curverad * left_nonzeros) + (right_curverad * right_nonzeros))/(left_nonzeros + right_nonzeros)
-    
-    # # Now our radius of curvature is in meters
-    ###print(left_curverad, 'm', right_curverad, 'm', weighted_curverad, 'm')
-    # # Example values: 632.1 m    626.2 m
     
     return (left_curverad, right_curverad, weighted_curverad)
 
@@ -91,20 +87,15 @@ def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
     # # Calculate left and right x at bottom of image
     # # Approach 1. adjust pixel value result be xm_per_pix
     y_eval = y_dim - 1
-    ###("y_eval={}".format(y_eval))
 
     left_x = left_fit[0]*y_eval**2 + left_fit[1]*y_eval + left_fit[2]
     right_x = right_fit[0]*y_eval**2 + right_fit[1]*y_eval + right_fit[2]
     lane_width = (right_x - left_x) * xm_per_pix
 
-    ###print("left_x={}, right_x={}".format(left_x, right_x))
-    ###print("lane width={}".format(lane_width) )
-
     assert 2 < lane_width < 5.5, "lane width should be reasonable: %r" % lane_width
 
     # off center distance
     lane_center = (right_x + left_x)/2
-    ###print("lane_center pixels={}".format(lane_center))
 
     off_center = (lane_center - (x_dim/2) ) * xm_per_pix
 
@@ -116,24 +107,36 @@ def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
 
 
 def slidingWindowsPolyFit( binary_warped ):
-    # Assuming you have created a warped binary image called "binary_warped"
-    # Take a histogram of the bottom half of the image
+    """Sliding Windows Polynomial fit for lane lines
+    
+    Args:
+        binary_warped (array): warped birds-eye view of lane image
+    Returns:
+        left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
+            - left_fit, right_fit: left and right lines polynomial fit
+            - out_img: warped image with detected line pixels marked
+            - left_radius, right_radius: radius of left and right lines
+            - weighted_radius: combined left and right radius
+    """
+    
+    # get histogram of the bottom half of the image 
+    # - peaks used to get starting x-coord for left and right lines
     histogram = np.sum(binary_warped[np.int(binary_warped.shape[0]/2):,:], axis=0)
 
     # Create an output image to draw on and  visualize the result
     # http://stackoverflow.com/questions/24739769/matplotlib-imshow-plots-different-if-using-colormap-or-rgb-array
     out_img = (np.dstack((binary_warped, binary_warped, binary_warped))*255).astype(np.uint8)
 
-    # Find the peak of the left and right halves of the histogram
-    # These will be the starting point for the left and right lines
+    # Find peaks of left and right halves of histogram
+    # These are used as the starting x-coord for the left and right lines
     midpoint = np.int(histogram.shape[0]/2)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
-    # Choose the number of sliding windows
+    # number of sliding windows
     nwindows = 9
 
-    # Set height of windows
+    # calculate height of each window
     window_height = np.int(binary_warped.shape[0]/nwindows)
 
     # Identify the x and y positions of all nonzero pixels in the image
@@ -147,8 +150,10 @@ def slidingWindowsPolyFit( binary_warped ):
 
     # Set the width of the windows +/- margin
     margin = 100
+    
     # Set minimum number of pixels found to recenter window
     minpix = 50
+    
     # Create empty lists to receive left and right lane pixel indices
     left_lane_inds = []
     right_lane_inds = []
@@ -162,22 +167,24 @@ def slidingWindowsPolyFit( binary_warped ):
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
+        
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2)
         cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2)
+        
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+        
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
-        # If you found > minpix pixels, recenter next window on their mean position
+        
+        # If found > minpix pixels, recenter next window on the mean position
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
-            #print("window={}, leftx_current={}".format(window, leftx_current))
         if len(good_right_inds) > minpix:
             rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
-            #print("window={}, rightx_current={}".format(window, rightx_current))
 
     # Concatenate the arrays of indices
     left_lane_inds = np.concatenate(left_lane_inds)
@@ -200,9 +207,6 @@ def slidingWindowsPolyFit( binary_warped ):
     # may have the same x value for more than one y value
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
-
-    ###print("lefty.shape={}, left_fit={}".format(lefty.shape, left_fit))
-    ###print("righty.shape={}, right_fit={}".format(righty.shape, right_fit))
     
     left_radius, right_radius, weighted_radius = lane_curvature( leftx, lefty, rightx, righty, binary_warped.shape[0] - 1 )
 
@@ -214,6 +218,8 @@ def slidingWindowsPolyFit( binary_warped ):
 # It's now much easier to find line pixels!
 def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     """Look Ahead Filter
+        Given a fit from prior frame, use the fit to predicate the general region where current frame
+        lane lines should be
 
     Args:
         left_fit (array): 2nd order polynomial fit of left lane line from previous frame
@@ -251,12 +257,13 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
         # Create an image to draw on and an image to show the selection window
         out_img = (np.dstack((binary_warped, binary_warped, binary_warped))*255).astype(np.uint8)
         window_img = np.zeros_like(out_img)
+        
         # Color in left and right line pixels
         out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
         out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
 
         # Generate x and y values for plotting
-        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+        ploty = np.linspace(20, binary_warped.shape[0]-1, binary_warped.shape[0]-20 ) # start at 20 to avoid x out of bounds
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
@@ -265,14 +272,14 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
         right_fitx_int = right_fitx.astype(np.uint16)
         
         if (left_fitx_int.max() > 1279):
-            print("lookAheadFilter count={}, left_fit={}".format(config.count, left_fit))
-            print("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
+            config.debug_log.write("lookAheadFilter count={}, left_fit={}\n".format(config.count, left_fit))
+            config.debug_log.write("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}\n".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
         else:
             out_img[ ploty_int, left_fitx_int ] = [255,255,0]
             
         if (right_fitx_int.max() > 1279):
-            print("lookAheadFilter count={}, right_fit={}".format(config.count, right_fit))
-            print("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
+            config.debug_log.write("lookAheadFilter count={}, right_fit={}\n".format(config.count, right_fit))
+            config.debug_log.write("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}\n".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
         else:
             out_img[ ploty_int, right_fitx_int ] = [255,255,0]
 
@@ -293,6 +300,7 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     else:
         out_img = None
 
+    # get the left and right line radius
     left_radius, right_radius, weighted_radius = lane_curvature( leftx, lefty, rightx, righty, binary_warped.shape[0] - 1 )
     
     return left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
@@ -300,6 +308,7 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
 def are_lines_parallel( line_one_poly, line_two_poly, threshold=(0.0005, 0.55) ):
     """
     check if two lines are parallel by comparing first two polynomial fit coefficients
+    - coefficients should be within margins
     
     Args:
         param other_line (array): line to compare polynomial coefficients
