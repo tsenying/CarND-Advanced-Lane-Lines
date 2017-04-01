@@ -260,8 +260,21 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
-        out_img[ ploty.astype(np.uint16), left_fitx.astype(np.uint16) ] = [255,255,0]
-        out_img[ ploty.astype(np.uint16), right_fitx.astype(np.uint16) ] = [255,255,0]
+        ploty_int = ploty.astype(np.uint16)
+        left_fitx_int = left_fitx.astype(np.uint16)
+        right_fitx_int = right_fitx.astype(np.uint16)
+        
+        if (left_fitx_int.max() > 1279):
+            print("lookAheadFilter count={}, left_fit={}".format(config.count, left_fit))
+            print("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
+        else:
+            out_img[ ploty_int, left_fitx_int ] = [255,255,0]
+            
+        if (right_fitx_int.max() > 1279):
+            print("lookAheadFilter count={}, right_fit={}".format(config.count, right_fit))
+            print("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
+        else:
+            out_img[ ploty_int, right_fitx_int ] = [255,255,0]
 
         # Generate a polygon to illustrate the search window area
         # And recast the x and y points into usable format for cv2.fillPoly()

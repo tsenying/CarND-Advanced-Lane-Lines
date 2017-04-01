@@ -40,8 +40,8 @@ lane_video = cv2.VideoWriter('lane_video.mp4',fourcc,fps,(width,height))
 
 config.lane_finder = LaneFinder( CALIBRATION, PERSPECTIVE, REAL2PIXELS )
 config.count = 0
-start_frame = 500 #380
-stop_frame  = 550 #400
+start_frame = 0 #500 #380
+stop_frame  = 1260 #650 #400
 while(cap.isOpened()):
     ret, frame = cap.read()
     if not ret:

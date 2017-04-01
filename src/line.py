@@ -82,15 +82,17 @@ class Line():
         # see if current fit is similar to history
         # threshold=(0.0003, 0.55)
         is_parallel = False
-        if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.0005, 0.55) )):
+        #if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.0005, 0.55) )):
+        #if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.00057, 0.77) )):
+        if (are_lines_parallel( self.current_fit, self.best_fit, threshold=(0.00065, 0.8) )):
             is_parallel = True
         else:
-            config.debug_log.write("Line({})#valid Frame {} invalid, is_parallel={}, current_fit={}, best_fit={}\n".format( self.name, config.count, is_parallel, self.current_fit, self.best_fit ))
+            config.debug_log.write("Line({})#valid Frame {} invalid, is_parallel={}, current_fit={}, best_fit={}, fit_diff={}\n".format( self.name, config.count, is_parallel, self.current_fit, self.best_fit, (self.current_fit - self.best_fit) ))
             
         distance_from_other_line_ok = False
         other_line_distance = line_distance(self.current_fit, other.best_fit, self.y_eval)
 
-        lane_width_range = (600, 700)
+        lane_width_range = (600, 720)
         if lane_width_range[0] <= other_line_distance <= lane_width_range[1]:
             distance_from_other_line_ok = True
         else:

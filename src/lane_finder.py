@@ -12,7 +12,7 @@ from image_utils import image_warp
 import config
 
 class LaneFinder():
-    nframes = 8
+    nframes = 5
     
     def __init__( self, CALIBRATION, PERSPECTIVE, REAL2PIXELS ):
         self.lane = Lane(self.nframes)
@@ -49,7 +49,7 @@ class LaneFinder():
 
         # 1. color and gradient binary
         threshold_binaries = \
-            colorAndGradientThresholdBinary(image, color_thresh=(128, 255), sobel_thresh=(50, 135), ksize=5)
+            colorAndGradientThresholdBinary(image, color_thresh=(140, 255), sobel_thresh=(50, 135), ksize=5)
         combined_binary = threshold_binaries[0]
 
         if plot:

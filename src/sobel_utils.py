@@ -39,17 +39,20 @@ def mag_thresh(img, sobel_kernel=3, mag_thresh=(0, 255)):
     """Magnitude of Sobel in x and y directions and thresholded
 
     Args:
-        img (numpy.ndarray): Source image. Color channels in RGB order.
+        #img (numpy.ndarray): Source image. Color channels in RGB order.
+        img (numpy.ndarray): Source image. Single channel (e.g. gray or red)
         sobel_kernel (int)
         mag_thresh (tuple) : (min, max) 2 element tuple
     """
-    # Apply the following steps to img
-    # 1) Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    ## 1) Convert to grayscale
+    #gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    
+    # 1) Use red channel
+    #aspect = image[:,:,0]
 
     # 2) Take the gradient in x and y separately
-    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+    sobel_x = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+    sobel_y = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
     # 3) Calculate the magnitude
     sobel_mag = np.sqrt( sobel_x**2 + sobel_y**2 )
@@ -66,17 +69,20 @@ def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
     """Direction of Sobel gradient in x and y combined then thresholded
 
     Args:
-        img (numpy.ndarray): Source image. Color channels in RGB order.
+        #img (numpy.ndarray): Source image. Color channels in RGB order.
+        img (numpy.ndarray): Source image. Single channel (e.g. gray or red)
         sobel_kernel (int)
         thresh (tuple) : (min, max) 2 element tuple, default 0 to 90 degrees
     """
-    # Apply the following steps to img
-    # 1) Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    ## 1) Convert to grayscale
+    #gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    
+    # 1) Use red channel
+    #aspect = image[:,:,0]
 
     # 2) Take the gradient in x and y separately
-    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+    sobel_x = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+    sobel_y = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
     # 3) Take the absolute value of the x and y gradients
     abs_sobel_x = np.absolute(sobel_x)

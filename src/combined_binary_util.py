@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from sobel_utils import abs_sobel_thresh, mag_thresh, dir_threshold
 
-def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(20, 100), ksize=3):
+def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(30, 135), ksize=5):
     """Use Sobel gradient and Color transforms to create a thresholded binary image
 
     Args:
@@ -15,43 +15,59 @@ def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(
         (color_binary, sx_binary, s_binary): color_binary, sx_binary, s_binary
     """
     img = np.copy(img)
+    
+    # Convert to HLS color space
+    # From investigations, HLS S channel, and HSV V channel provides decent lane line detection
+    hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS).astype(np.float)
+    hls_s = hls[:,:,2]
+    
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV).astype(np.float)
+    hsv_v = hsv[:,:,2]
+    
+    red = img[:,:,0]
 
+    ######## Sobel magnitude and direction ########
+    
     ### Sobel Gradient in x direction ( x direction accentuates vertical lines )
     #sx_binary = abs_sobel_thresh(img, orient='x', ksize=3, thresh_min=sobel_thresh[0], thresh_max=sobel_thresh[1])
 
     ### Sobel magnitude
-    mag_binary = mag_thresh(img, sobel_kernel=9, mag_thresh=sobel_thresh) # (30,100) seems to work well
+    mag_binary = mag_thresh(hls_s, sobel_kernel=ksize, mag_thresh=sobel_thresh) # (30,100) seems to work well
 
     ### Sobel direction (0.5 to 1.4) is about (30 to 80 degrees)
-    dir_binary = dir_threshold(img, sobel_kernel=13, thresh=(0.5, 1.5))
+    dir_binary = dir_threshold(hls_s, sobel_kernel=ksize, thresh=(0.5, 1.5))
 
     ### Combine magnitude and direction where both thresholds are satisfied
     # (note that magnitude and direction takes both individual Sobel x and y into account)
     sobel_combined_binary = np.zeros_like(dir_binary)
     sobel_combined_binary[((mag_binary == 1) & (dir_binary == 1))] = 1
+    
+    ### Sobel Red
+    red_mag_binary = mag_thresh(red, sobel_kernel=ksize, mag_thresh=(70,255)) 
+    red_dir_binary = dir_threshold(red, sobel_kernel=ksize, thresh=(0.5, 1.5))
 
-    ### Color Channel
-    # Convert to HLS color space
-    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HLS).astype(np.float)
-    h_channel = hsv[:,:,0]
-    l_channel = hsv[:,:,1]
-    s_channel = hsv[:,:,2]
+    red_sobel_combined_binary = np.zeros_like( red_mag_binary )
+    red_sobel_combined_binary[((red_mag_binary == 1) & (red_dir_binary == 1))] = 1
+    
+    sobel_combined_binary[((sobel_combined_binary == 1) | (red_sobel_combined_binary == 1))] =1
 
+    ######## Color Channel ########
     # Threshold color channel
-    s_binary = np.zeros_like(s_channel)
-    s_binary[(s_channel >= color_thresh[0]) & (s_channel <= color_thresh[1])] = 1
+    s_binary = np.zeros_like(hls_s)
+    s_binary[(hls_s >= color_thresh[0]) & (hls_s <= color_thresh[1])] = 1
 
     s_gradiented_binary = ((s_binary == 1) & (dir_binary == 1)) # s_binary filtered by gradient
 
-    h_binary = np.zeros_like(h_channel)
-    h_binary[(h_channel >= 15) & (h_channel <= 30)] = 1
+    v_binary = np.zeros_like(hsv_v)
+    v_binary[(hsv_v >= 220) & (hsv_v <= 255)] = 1
 
     color_combined_binary = np.zeros_like(s_binary)
-    color_combined_binary[ (s_binary == 1) & ( h_binary == 1)] =1
+    color_combined_binary[ (s_binary == 1) | ( v_binary == 1)] =1
 
     color_gradiented_binary = ((color_combined_binary == 1) & (dir_binary == 1)) # s_binary filtered by gradient
 
-    # Stack each channel
+    # create debug image with different colors for sobel and color
+    # Stack each channel, channel 0 = 0s, channel 1 = sobel binary, channel 2 = color binary
     # Note color_binary[:, :, 0] is all 0s, effectively an all black image. It might
     # be beneficial to replace this channel with something else.
     color_binary = np.dstack(( np.zeros_like(sobel_combined_binary), sobel_combined_binary, color_gradiented_binary))
@@ -62,7 +78,7 @@ def colorAndGradientThresholdBinary(img, color_thresh=(170, 255), sobel_thresh=(
 
     return combined_binary, color_binary, \
         sobel_combined_binary, mag_binary, dir_binary, \
-        s_gradiented_binary, s_binary, h_binary, color_gradiented_binary
+        s_gradiented_binary, s_binary, v_binary, color_gradiented_binary
 
 # plot lane overlay on original image
 def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist):
