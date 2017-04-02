@@ -1,5 +1,5 @@
 
-# Advanced Lane Finding Project #
+# Advanced Lane Finding Project
 
 The goals / steps of this project are the following:
 
@@ -12,7 +12,7 @@ The goals / steps of this project are the following:
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-### Project Files ###
+### Project Files
 
 - Project Report: Advanced_Lane_Finding.md (this file)
 - Source Code: in `./src` directory
@@ -22,7 +22,7 @@ The goals / steps of this project are the following:
 - Jupyter notebook used for initial investigations: `AdvancedLaneFinding.ipynb`
 - Final video with lane overlay: `lane_video.mp4` (not in git repository, uploaded to https://youtu.be/zp9oSdVjiws)
 
-### Running source files ###
+### Running source files
 1. generate camera calibration: `python src/camera_calibration.py`
 2. generate perspective transformation matrices: `python src/perspective_transform_matrix.py`
 3. process video file: `src/process_video_images.py`
@@ -30,14 +30,14 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [image1]: ./output_images/camera_calibration.jpg "Camera Calibration"
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
+[image2]: ./output_images/straight_lines1_undistort.jpg "Road Image Undistorted"
+[image3]: ./output_images/combined_sobel_and_color_binary.jpg "Combined Sobel and Color Binary Example"
 [image4]: ./examples/warped_straight_lines.jpg "Warp Example"
 [image5]: ./examples/color_fit_lines.jpg "Fit Visual"
 [image6]: ./examples/example_output.jpg "Output"
 [video1]: ./project_video.mp4 "Video"
 
-###Camera Calibration
+## Camera Calibration
 
 ####1. Camera calibration is done using [OpenCV Camera Calibration support](http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_calib3d/py_calibration/py_calibration.html#calibration)
 
@@ -63,13 +63,50 @@ Example undistorted image is shown here:
 
 ![alt text][image1]
 
-###Pipeline (single images)
+## Pipeline (single images)
 
-####1. Provide an example of a distortion-corrected image.
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
+### 1. Undistort Image
+For video processing, as the first step, each image is undistorted with calibration results.
+
+This is done in `src/image_utils.py` (_line 21_)  
+An example of an undistorted image is shown here:
 ![alt text][image2]
-####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+
+### 2. Thresholded Binary Image
+Thresholding an image according to some criteria is used to create a binary image that isolates the lane lines.  
+A combination of gradient and color thresholds is used to generate the binary image.
+
+This step is critical in the pipeline.
+If the lane line cannot be detected and isolated well enough to represent the line, a good fit cannot be found.  
+For example, if the look ahead filter algorithm fails to find a good fit, 
+backing off and retrying the sliding windows algorithm will not help because the line pixels are not detected.
+
+#### Color Spaces and Channels
+An import aspect of finding the lane lines is using the right color space channel that represents the lane line well.  
+For example, with RGB color space, Red has high values for lane line pixels, Green has moderate values, Blues has low to zero values.  
+So using the Blue channel will do poorly to find lane lines.
+
+A combination of HLS S channel, HSV V channel, and RGB Red channel is used for lane line pixel detection.  
+HLS S does well for light backgrounds such as the bridge of concrete construction,  
+well as RGB Red channel does better for dark backgrounds such as road surface following bridges, such as frame 613.
+
+#### Sobel Gradient Thresholding
+[Sobel gradient filters](http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_gradients/py_gradients.html)
+can be used to detect edges (as an alternative to Hough transforms)
+
+Sobel function code is in `src/sobel_utils.py`.  
+It has functions for finding gradients in x and y directions `abs_sobel_thresh`,  
+magnitude `mag_thresh` and direction `dir_threshold`.  
+Magnitude and direction is used in conjunction, and it captures aspects of x and y direction as well.
+
+#### Color Thresholding
+For color thresholding, HLS S and HSV V channels (instead of Gray or Red) as they were found to provide good lane line detection
+through experimentation.
+
+Sobel gradient and Color channel thresholding were combined to generate binary images.
+The code for this is in the function colorAndGradientThresholdBinary (_src/combined_binary_util.py:line 5_)
+
+An example of a lane image processed through sobel and color thresholding is shown here:
 
 ![alt text][image3]
 
