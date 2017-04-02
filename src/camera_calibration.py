@@ -73,9 +73,35 @@ cv2.imwrite('./output_images/calibration_undistort.jpg', img_undistort)
 
 f, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 ax1.imshow(img)
-ax1.set_title('Original Image', fontsize=30)
+ax1.set_title('Original Image', fontsize=20)
 ax2.imshow(img_undistort)
-ax2.set_title('Undistorted Image', fontsize=30)
+ax2.set_title('Undistorted Image', fontsize=20)
 
 f.savefig('./output_images/camera_calibration.jpg')
+plt.show()
+
+### Try calibration on a road image
+import matplotlib.image as mpimg
+
+# Read in the saved camera matrix and distortion coefficients
+# These are the arrays calculated using cv2.calibrateCamera()
+dist_pickle = pickle.load( open( "camera_cal/calibration_pickle.p", "rb" ) )
+mtx = dist_pickle["mtx"]
+dist = dist_pickle["dist"]
+CALIBRATION = {'mtx': mtx, 'dist': dist}
+
+# Read in an image
+img_orig = mpimg.imread('test_images/straight_lines1.jpg')
+
+# 1) Undistort using mtx and dist
+img = cv2.undistort(img_orig, mtx, dist, None, mtx)
+
+f, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+f.tight_layout()
+ax1.imshow(img_orig)
+ax1.set_title('Original Image', fontsize=20)
+ax2.imshow(img)
+ax2.set_title('Undistorted', fontsize=20)
+
+f.savefig('./output_images/straight_lines1_undistort.jpg')
 plt.show()
