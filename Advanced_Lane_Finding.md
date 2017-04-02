@@ -33,8 +33,9 @@ The goals / steps of this project are the following:
 [image2]: ./output_images/straight_lines1_undistort.jpg "Road Image Undistorted"
 [image3]: ./output_images/combined_sobel_and_color_binary.jpg "Combined Sobel and Color Binary Example"
 [image4]: ./output_images/perspective_transform_test.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
+[image5]: ./output_images/sliding_window_fit.jpg "Sliding Window Fit"
+[image6]: ./output_images/look_ahead_filter.jpg  "Look Ahead Filter Fit"
+[image7]: ./output_images/frame755.jpg "Lane Overlay with annotation"
 [video1]: ./project_video.mp4 "Video"
 
 ## Camera Calibration
@@ -110,7 +111,6 @@ An example of a lane image processed through sobel and color thresholding is sho
 
 ![alt text][image3]
 
-####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 ### 3. Perspective transformation to get flat birds-eye view of lane image
 
 The perspective transformation matrix is calculated in file `src/perspective_transform_matrix.py`  
@@ -134,35 +134,98 @@ This function was tested on the `test_images/straight_lines1.jpg` image with the
 
 ![alt text][image4]
 
-####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+### 4. Lane Line Detection and Polynomial Fitting
+Two methods are available to detect lane line pixels:
+1. Sliding Windows: histogram based approach
+2. Look Ahead Filter: can be used if a prior fit is available.
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+#### Sliding Windows
+Is implemented by function slidingWindowsPolyFit in `src/lane_fit_utils.py` (_line 109_)  
+Algorithm approach is as follows:
+1. finds the starting x coords for left and right lanes by finding the histogram peaks of non-zero pixels for left and right halves of the image.
+2. divide the image into even sections along y-axis
+3. starting from bottom, for each section:
+  - find mean of non-zero pixels and set as current x value of line
+  - adjust window with current x
+4. fit non-zero pixel positions with numpy.polyfit as 2nd order polynomial
+5. lane curvature radius is calculate via call to lane_curvature at line _line 211_
 
+#### Look Ahead Filter
+Is implemented by function lookAheadFilter in `src/lane_fit_utils.py` (_line 219_)  
+Algorithm approach is as follows:
+1. given prior fit, create region with some margin to either side of line
+2. detect non-zero pixels in region
+3. fit polynomial to non-zero pixels positions
+
+
+Results for both approaches are shown for image `test_images/straight_lines1.jpg`,
+where yellow lines denote polynomial fit lines.
+
+##### Sliding Windows
 ![alt text][image5]
 
-####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
-
-I did this in lines # through # in my code in `my_other_file.py`
-
-####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
-
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
-
+##### Look Ahead Filter
 ![alt text][image6]
+
+####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+### 5. Line curvature radius calculation and lane offset
+
+#### Line Curvature
+Is calculated via function line_curvature in `src/lane_fit_utils.py` (_line 43_)
+Given a polynomial fit,  
+x and y points are calculated for the image window for real world dimensions,  
+these points are refit to another polynomial,  
+radius is then calculated using the real world polynomial fit.
+
+#### Lane offset
+Is calculated via function lane_offset in `src/lane_fit_utils.py` (_line 70_)
+Given left and right fit  
+calculate the x coord for left and right lines at image point closest to vehicle,  
+calculate difference between mid point of left and right x coords and image mid point  
+convert to real world dimensions
+
+### 6. Example of lane overlay on road image
+Plotting lane overlay on lane image is implemented in function `plot_lane` in file `src/lane_finder.py` (_line 70_)
+Basically the line fit is drawn on warped image,  
+the warped image is un-warped using inverse perspective transform matrix,  
+the un-warped lane image is then overlayed onto lane image.
+
+An example result is shown here:
+![alt text][image7]
 
 ---
 
 ###Pipeline (video)
 
-####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+####1. [link to video result](./project_video.mp4)
 
-Here's a [link to my video result](./project_video.mp4)
+<iframe width="560" height="315" src="https://www.youtube.com/embed/zp9oSdVjiws" frameborder="0" allowfullscreen></iframe>
 
 ---
 
-###Discussion
+### Discussion
 
-####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+##### Lane line detection
+
+Finding lane line pixels was critical for entire pipeline.
+A color space channel may work well for certain frame sections like dark road surfaces, but not well for light road surfaces.
+A combination of multiple channels from HLS, HSV and RGB color spaces was used to address different situations.
+
+Distinguishing from proximate lines like bridge interface was problematic,
+finding the thresholding limits that works was empirical.
+
+#### 2. Where will your pipeline likely fail?  
+Vehicles in the lane ahead would confuse the current pipeline implementation.  
+
+Lane line discontinuation for extended frames would cause hiccups.
+
+#### 3. What could you do to make it more robust?
+
+The techniques employed seems brittle and requires fine-tuning.
+
+Could explore use of behavioral-cloning techniques in conjunction.
+
+
 
