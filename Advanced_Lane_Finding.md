@@ -40,7 +40,7 @@ The goals / steps of this project are the following:
 
 ## Camera Calibration
 
-####1. Camera calibration is done using [OpenCV Camera Calibration support](http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_calib3d/py_calibration/py_calibration.html#calibration)
+#### 1. Camera calibration is done using [OpenCV Camera Calibration support](http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_calib3d/py_calibration/py_calibration.html#calibration)
 
 Camera calibration is needed to correct for distortion of images by the camera.
 What is needed is referred to by the reference as the 'distortion coefficients' and the 'camera matrix'.
@@ -195,9 +195,9 @@ An example result is shown here:
 
 ---
 
-###Pipeline (video)
+### Pipeline (video)
 
-####1. [link to video result](./project_video.mp4)
+####1. [link to youtube video result](https://youtu.be/zp9oSdVjiws)
 
 <iframe width="560" height="315" src="https://www.youtube.com/embed/zp9oSdVjiws" frameborder="0" allowfullscreen></iframe>
 
