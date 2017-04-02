@@ -69,7 +69,7 @@ Example undistorted image is shown here:
 ### 1. Undistort Image
 For video processing, as the first step, each image is undistorted with calibration results.
 
-This is done in `src/image_utils.py` (_line 21_)  
+This is done in the utility function `image_warp`, `src/image_utils.py` (_line 21_)  
 An example of an undistorted image is shown here:
 ![alt text][image2]
 
@@ -89,7 +89,7 @@ So using the Blue channel will do poorly to find lane lines.
 
 A combination of HLS S channel, HSV V channel, and RGB Red channel is used for lane line pixel detection.  
 HLS S does well for light backgrounds such as the bridge of concrete construction,  
-well as RGB Red channel does better for dark backgrounds such as road surface following bridges, such as frame 613.
+RGB Red channel does better for dark backgrounds such as road surface following bridges, such as frame 613.
 
 #### Sobel Gradient Thresholding
 [Sobel gradient filters](http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_gradients/py_gradients.html)
@@ -105,7 +105,7 @@ For color thresholding, HLS S and HSV V channels (instead of Gray or Red) as the
 through experimentation.
 
 Sobel gradient and Color channel thresholding were combined to generate binary images.
-The code for this is in the function colorAndGradientThresholdBinary (_src/combined_binary_util.py:line 5_)
+The code for this is in the function `colorAndGradientThresholdBinary` (_src/combined_binary_util.py:line 5_)
 
 An example of a lane image processed through sobel and color thresholding is shown here:
 
@@ -167,7 +167,23 @@ where yellow lines denote polynomial fit lines.
 ##### Look Ahead Filter
 ![alt text][image6]
 
-####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+#### Validation Checks
+Each fit is run through validation checks.
+If line is invalid, the fit is discarded.  
+A Line class is used to maintain history of fits for each line. `src/line.py`
+The `Line.valid` method runs the validation checks. `src/line.py` (_line 73_)  
+
+It checks:
+##### lines are parallel
+Current fit polynomial first and second order params should be within reasonable margins of other line. `src/line.py` (_line 88_)
+##### lines represent reasonable lane width
+Current fit should be reasonable lane width from other line. `src/line.py` (_lines 93-100_)
+
+#### History averaging
+History averaging is used to smooth out radius changes from image to image.
+This is done by averaging the valid fits over past fixed number of frames,
+via `Line.update` method. `src/line.py` (_lines 59-65_)
+
 ### 5. Line curvature radius calculation and lane offset
 
 #### Line Curvature
@@ -196,6 +212,15 @@ An example result is shown here:
 ---
 
 ### Pipeline (video)
+To process the video, each frame of the video is fed through the pipeline.  
+This is done with `src/process_video_images.py`.
+- each frame is read (_line 49_)
+- frame image is fed through pipeline using `LaneFinder` class `process_image` (_line 65_)
+  1. image lane line fits is found using `LaneFinder.find_lane` which encapsulates the pipeline. `src/lane_finder.py` (_line 27_)
+  2. validation checks are invoked through `Lane.update`. `src/lane_finder.py` (_line 121_)
+  3. average radius of left and right lines is calculates in `src/process_video_images.py` (_lines 130-133_)
+  4. lane overlay is then plotted with `LaneFinder.plot_lane` in `src/process_video_images.py` (_lines 135_)
+- resulting image is written to output video file (_line 69_)
 
 ####1. [link to youtube video result](https://youtu.be/zp9oSdVjiws)
 
