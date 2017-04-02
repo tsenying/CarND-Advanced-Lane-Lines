@@ -36,7 +36,7 @@ The goals / steps of this project are the following:
 [image5]: ./output_images/sliding_window_fit.jpg "Sliding Window Fit"
 [image6]: ./output_images/look_ahead_filter.jpg  "Look Ahead Filter Fit"
 [image7]: ./output_images/frame755.jpg "Lane Overlay with annotation"
-[video1]: ./project_video.mp4 "Video"
+[video1]: ./lane_video.mp4 "Video"
 
 ## Camera Calibration
 
@@ -219,11 +219,15 @@ finding the thresholding limits that works was empirical.
 #### 2. Where will your pipeline likely fail?  
 Vehicles in the lane ahead would confuse the current pipeline implementation.  
 
-Lane line discontinuation for extended frames would cause hiccups.
+Lane line discontinuation for extended frames would cause hiccups.  
+Tight curves would require faster radius updating.  
+More shadows could be problematic.
 
 #### 3. What could you do to make it more robust?
 
-The techniques employed seems brittle and requires fine-tuning.
+The techniques employed seems brittle and requires fine-tuning.  
+Techniques that are adaptive to frame image characteristics could be explored,
+e.g. use different color space/channels if image lighter/darker.
 
 Could explore use of behavioral-cloning techniques in conjunction.
 
