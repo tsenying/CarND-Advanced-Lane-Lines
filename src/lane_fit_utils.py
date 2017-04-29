@@ -1,9 +1,7 @@
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
-from image_utils import image_warp
 
-from combined_binary_util import colorAndGradientThresholdBinary
+import config
 
 # Curvature of lane lines
 import numpy as np
@@ -37,17 +35,37 @@ def lane_curvature( leftx, lefty, rightx, righty, y_eval ):
     # Calculate radius weighted by number of non-zero points on left and right lanes
     left_nonzeros = leftx.shape[0]
     right_nonzeros = rightx.shape[0]
-    ###print("leftx.shape[0]={}, rightx.shape[0]={}".format(left_nonzeros, right_nonzeros))
+
     weighted_curverad = ((left_curverad * left_nonzeros) + (right_curverad * right_nonzeros))/(left_nonzeros + right_nonzeros)
-    
-    # # Now our radius of curvature is in meters
-    ###print(left_curverad, 'm', right_curverad, 'm', weighted_curverad, 'm')
-    # # Example values: 632.1 m    626.2 m
     
     return (left_curverad, right_curverad, weighted_curverad)
 
+def line_curvature( line_poly ):
+    """
+    Find line curvature
+    
+    Args:
+        line_poly (array): line polynomial fit
+    Returns:
+        radius (float): in meters
+    """
+    line_poly1d_fn = np.poly1d( line_poly ) # turn coefficients into function
+    
+    # calculate set of points for poly to re-fit in real world
+    # remember y axis is variant, x axis is function value
+    y_points = np.array(np.linspace(0, config.image_shape['height'], num=50))
+    x_points = np.array([ line_poly1d_fn(x) for x in y_points ])
+    
+    # evaluate curvature closest to vehicle
+    y_eval = config.image_shape['height'] - 1
+    
+    # real world poly fit
+    real_line_poly = np.polyfit(y_points * config.REAL2PIXELS['ym_per_pix'], x_points * config.REAL2PIXELS['xm_per_pix'], 2 )
+    
+    radius = ((1 + (2*real_line_poly[0]*y_eval*config.REAL2PIXELS['ym_per_pix'] + real_line_poly[1])**2)**1.5) / np.absolute(2*real_line_poly[0])
 
-
+    return radius
+    
 # find off center distance and left and right line separation (lane width)
 def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
     """
@@ -69,20 +87,15 @@ def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
     # # Calculate left and right x at bottom of image
     # # Approach 1. adjust pixel value result be xm_per_pix
     y_eval = y_dim - 1
-    ###("y_eval={}".format(y_eval))
 
     left_x = left_fit[0]*y_eval**2 + left_fit[1]*y_eval + left_fit[2]
     right_x = right_fit[0]*y_eval**2 + right_fit[1]*y_eval + right_fit[2]
     lane_width = (right_x - left_x) * xm_per_pix
 
-    ###print("left_x={}, right_x={}".format(left_x, right_x))
-    ###print("lane width={}".format(lane_width) )
-
     assert 2 < lane_width < 5.5, "lane width should be reasonable: %r" % lane_width
 
     # off center distance
     lane_center = (right_x + left_x)/2
-    ###print("lane_center pixels={}".format(lane_center))
 
     off_center = (lane_center - (x_dim/2) ) * xm_per_pix
 
@@ -94,24 +107,36 @@ def lane_offset( left_fit, right_fit, warped_shape, xm_per_pix ):
 
 
 def slidingWindowsPolyFit( binary_warped ):
-    # Assuming you have created a warped binary image called "binary_warped"
-    # Take a histogram of the bottom half of the image
+    """Sliding Windows Polynomial fit for lane lines
+    
+    Args:
+        binary_warped (array): warped birds-eye view of lane image
+    Returns:
+        left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
+            - left_fit, right_fit: left and right lines polynomial fit
+            - out_img: warped image with detected line pixels marked
+            - left_radius, right_radius: radius of left and right lines
+            - weighted_radius: combined left and right radius
+    """
+    
+    # get histogram of the bottom half of the image 
+    # - peaks used to get starting x-coord for left and right lines
     histogram = np.sum(binary_warped[np.int(binary_warped.shape[0]/2):,:], axis=0)
 
     # Create an output image to draw on and  visualize the result
     # http://stackoverflow.com/questions/24739769/matplotlib-imshow-plots-different-if-using-colormap-or-rgb-array
     out_img = (np.dstack((binary_warped, binary_warped, binary_warped))*255).astype(np.uint8)
 
-    # Find the peak of the left and right halves of the histogram
-    # These will be the starting point for the left and right lines
+    # Find peaks of left and right halves of histogram
+    # These are used as the starting x-coord for the left and right lines
     midpoint = np.int(histogram.shape[0]/2)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
-    # Choose the number of sliding windows
+    # number of sliding windows
     nwindows = 9
 
-    # Set height of windows
+    # calculate height of each window
     window_height = np.int(binary_warped.shape[0]/nwindows)
 
     # Identify the x and y positions of all nonzero pixels in the image
@@ -125,8 +150,10 @@ def slidingWindowsPolyFit( binary_warped ):
 
     # Set the width of the windows +/- margin
     margin = 100
+    
     # Set minimum number of pixels found to recenter window
     minpix = 50
+    
     # Create empty lists to receive left and right lane pixel indices
     left_lane_inds = []
     right_lane_inds = []
@@ -140,22 +167,24 @@ def slidingWindowsPolyFit( binary_warped ):
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
+        
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2)
         cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2)
+        
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
+        
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
-        # If you found > minpix pixels, recenter next window on their mean position
+        
+        # If found > minpix pixels, recenter next window on the mean position
         if len(good_left_inds) > minpix:
             leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
-            #print("window={}, leftx_current={}".format(window, leftx_current))
         if len(good_right_inds) > minpix:
             rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
-            #print("window={}, rightx_current={}".format(window, rightx_current))
 
     # Concatenate the arrays of indices
     left_lane_inds = np.concatenate(left_lane_inds)
@@ -178,9 +207,6 @@ def slidingWindowsPolyFit( binary_warped ):
     # may have the same x value for more than one y value
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
-
-    ###print("lefty.shape={}, left_fit={}".format(lefty.shape, left_fit))
-    ###print("righty.shape={}, right_fit={}".format(righty.shape, right_fit))
     
     left_radius, right_radius, weighted_radius = lane_curvature( leftx, lefty, rightx, righty, binary_warped.shape[0] - 1 )
 
@@ -190,13 +216,14 @@ def slidingWindowsPolyFit( binary_warped ):
 # Assume you now have a new warped binary image
 # from the next frame of video (also called "binary_warped")
 # It's now much easier to find line pixels!
-# (use the same image just to try out)
 def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     """Look Ahead Filter
+        Given a fit from prior frame, use the fit to predicate the general region where current frame
+        lane lines should be
 
     Args:
         left_fit (array): 2nd order polynomial fit of left lane line from previous frame
-        right_fit (array):
+        right_fit (array): 2nd order polynomial fit of right lane line from previous frame
         binary_warped (numpy.ndarray): thresholded binary
         lane_image (boolean): create lane image
 
@@ -216,7 +243,7 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     right_line = right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2]
     right_lane_inds = ((nonzerox > (right_line - margin)) & (nonzerox < (right_line + margin)))
 
-    # Again, extract left and right line pixel positions
+    # Extract left and right line pixel positions
     leftx = nonzerox[left_lane_inds]
     lefty = nonzeroy[left_lane_inds]
     rightx = nonzerox[right_lane_inds]
@@ -230,17 +257,31 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
         # Create an image to draw on and an image to show the selection window
         out_img = (np.dstack((binary_warped, binary_warped, binary_warped))*255).astype(np.uint8)
         window_img = np.zeros_like(out_img)
+        
         # Color in left and right line pixels
         out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
         out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
 
         # Generate x and y values for plotting
-        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+        ploty = np.linspace(20, binary_warped.shape[0]-1, binary_warped.shape[0]-20 ) # start at 20 to avoid x out of bounds
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
 
-        out_img[ ploty.astype(np.uint16), left_fitx.astype(np.uint16) ] = [255,255,0]
-        out_img[ ploty.astype(np.uint16), right_fitx.astype(np.uint16) ] = [255,255,0]
+        ploty_int = ploty.astype(np.uint16)
+        left_fitx_int = left_fitx.astype(np.uint16)
+        right_fitx_int = right_fitx.astype(np.uint16)
+        
+        if (left_fitx_int.max() > 1279):
+            config.debug_log.write("lookAheadFilter count={}, left_fit={}\n".format(config.count, left_fit))
+            config.debug_log.write("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}\n".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
+        else:
+            out_img[ ploty_int, left_fitx_int ] = [255,255,0]
+            
+        if (right_fitx_int.max() > 1279):
+            config.debug_log.write("lookAheadFilter count={}, right_fit={}\n".format(config.count, right_fit))
+            config.debug_log.write("lookAheadFilter count={}, ploty.shape={}, left_fitx_int.max={}, right_fitx_int.max={}\n".format(config.count, ploty.shape, left_fitx_int.max(), right_fitx_int.max()))
+        else:
+            out_img[ ploty_int, right_fitx_int ] = [255,255,0]
 
         # Generate a polygon to illustrate the search window area
         # And recast the x and y points into usable format for cv2.fillPoly()
@@ -259,139 +300,43 @@ def lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=False ):
     else:
         out_img = None
 
+    # get the left and right line radius
     left_radius, right_radius, weighted_radius = lane_curvature( leftx, lefty, rightx, righty, binary_warped.shape[0] - 1 )
     
     return left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius
 
-## Collect transforms into pipeline function
-# Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
-def find_lane( image, mtx, dist, M, left_fit=None, right_fit=None, plot=False ):
+def are_lines_parallel( line_one_poly, line_two_poly, threshold=(0.0005, 0.55) ):
     """
-    Find Lane
-
-    Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
-
-    If lane line polynomial fit is available from previous frame, for current frame poly fit
-      Use look ahead filter method
-    else:
-      Use sliding window method
-
+    check if two lines are parallel by comparing first two polynomial fit coefficients
+    - coefficients should be within margins
+    
     Args:
-        image (numpy.ndarray): Source image. Color channels in RGB order.
-        mtx: camera matrix,
-        dist: distortion coefficients
-        M: the transform matrix
-        left_fit: polyfit from previous frame
-        right_fit:
-
+        param other_line (array): line to compare polynomial coefficients
+        threshold (tuple): floats representing delta thresholds for coefficients
+    
     Returns:
-        (left_fit, right_fit, warped): warped image
+        boolean
     """
+    diff_first_coefficient = np.abs(line_one_poly[0] - line_two_poly[0])
+    diff_second_coefficient = np.abs(line_one_poly[1] - line_two_poly[1])
 
-    ###print("type(image)={}, image.shape={}".format( type(image), image.shape ))
+    is_parallel = diff_first_coefficient < threshold[0] and diff_second_coefficient < threshold[1]
 
-    # 1. color and gradient binary
-    threshold_binaries = \
-        colorAndGradientThresholdBinary(image, color_thresh=(128, 255), sobel_thresh=(50, 135), ksize=5)
-    combined_binary = threshold_binaries[0]
+    return is_parallel
 
-    if plot:
-        # Plot the color and gradient result
-        f, axes = plt.subplots(1, 2, squeeze=False, figsize=(24, 9))
-        f.suptitle('Gradient and Color Threshold', fontsize=32)
-        f.tight_layout()
-        axes[0][0].imshow(image)
-        axes[0][0].set_title('Original Image - undistorted', fontsize=40)
-        axes[0][1].imshow(combined_binary, cmap='gray')
-        axes[0][1].set_title('Combined Binary', fontsize=40)
-
-    # 2. undistort and warp image
-    binary_warped = image_warp(combined_binary, mtx, dist, M)
-
-    if plot:
-        f, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 9))
-        f.suptitle('Undistort', fontsize=32)
-        f.tight_layout()
-        ax1.imshow(combined_binary, cmap='gray')
-        ax1.set_title('Combined Binary', fontsize=40)
-        ax2.imshow(binary_warped, cmap='gray')
-        ax2.set_title('Undistorted and Warped', fontsize=40)
-
-    # 3. Sliding windows fit on first image
-    if left_fit is None:
-        left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
-          slidingWindowsPolyFit( binary_warped )
-        fit_title = 'Sliding window fit'
-        ###print("Sliding window fit left_fit={}, right_fit={}".format(left_fit, right_fit))
-    else:
-        left_fit, right_fit, out_img, left_radius, right_radius, weighted_radius = \
-          lookAheadFilter( left_fit, right_fit, binary_warped, lane_image=plot )
-        fit_title = 'Look ahead filter fit'
-        ###print("Look ahead filter fit left_fit={}, right_fit={}".format(left_fit, right_fit))
-
-    if plot:
-        # Generate x and y values for plotting
-        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-
-        # left and right lines from polyfit over y range
-        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-
-        # color left lane points as red, right lane points as blue
-        #out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
-        #out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-
-        f, (ax1) = plt.subplots(1,1, figsize=(6,4))
-        f.tight_layout()
-        ax1.imshow(out_img)
-        ax1.plot(left_fitx, ploty, color='yellow')
-        ax1.plot(right_fitx, ploty, color='orange')
-        ax1.set_title(fit_title, fontsize=40)
-
-    return left_fit, right_fit, binary_warped, weighted_radius
-
-# plot lane overlay on original image
-def plot_lane( image, binary_warped, left_fit, right_fit, Minv, mtx, dist, lane_radius, xm_per_pix):
-    # Generate x and y values for plotting
-    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-
-    # Project lines on original image
-
-    # Create an image to draw the lines on
-    warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
-    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    ###print("color_warp.shape={}".format(color_warp.shape))
-
-    # Recast the x and y points into usable format for cv2.fillPoly()
-    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
-    pts = np.hstack((pts_left, pts_right))
-
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
-
-    # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
-    # Combine the result with the original image
-    image_undistorted = cv2.undistort(image, mtx, dist, None, mtx)
-    image_with_lane = cv2.addWeighted(image_undistorted, 1, newwarp, 0.3, 0)
+def line_distance(line_one_poly, line_two_poly, y_eval):
+    """
+    get distance between current fit with other_line
     
-    # Add lane offset
-    off_center, lane_width = lane_offset( left_fit, right_fit, binary_warped.shape, xm_per_pix )
-    ###print("off_center={}, lane_width={}".format(off_center, lane_width))
+    Args:
+        line_one_poly: line one polynomial 
+        line_two_poly:
+        y_eval: value to evaluate
+    Returns:
+        float
+    """
+    line_one_poly1d = np.poly1d( line_one_poly )
+    line_two_poly1d = np.poly1d( line_two_poly )
+    return np.abs( line_one_poly1d( y_eval ) - line_two_poly1d( y_eval ))
 
-    # curve to left or right
-    if (left_fit[0] < 0):
-        curve_dir = 'L'
-    else:
-        curve_dir = 'R'
-        
-    annotate_str = "Radius {0:.2f}({1}), Off-Center {2:.3f}".format(lane_radius, curve_dir, off_center)
 
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(image_with_lane,annotate_str,(10,100), font, 2,(255,255,255),3,cv2.LINE_AA)
-    
-    return image_with_lane
-    
